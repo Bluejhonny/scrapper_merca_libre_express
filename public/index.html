@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Buscador de repuestos</title>
+<style>
+  :root {
+    --steel: #2f3a45;
+    --steel-2: #46535f;
+    --paper: #eef1f3;
+    --line: #cfd6dc;
+    --yellow: #f2c230;
+    --ok: #1f7a4a;
+    font-family: "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--steel); }
+  header { background: var(--steel); color: #fff; padding: 28px 20px 24px; border-bottom: 6px solid var(--yellow); }
+  .wrap { max-width: 1100px; margin: 0 auto; }
+  h1 { margin: 0 0 16px; font-size: 1.6rem; font-weight: 700; }
+  form { display: flex; flex-wrap: wrap; gap: 10px; }
+  input[type=text] { flex: 1 1 280px; padding: 12px 14px; font-size: 1rem; border: 0; border-radius: 4px; }
+  label.pages { display: flex; align-items: center; gap: 6px; font-size: .9rem; }
+  input[type=number] { width: 70px; padding: 10px; border: 0; border-radius: 4px; }
+  button, a.btn { padding: 12px 18px; font-size: 1rem; font-weight: 600; border: 0; border-radius: 4px; cursor: pointer; text-decoration: none; }
+  button { background: var(--yellow); color: var(--steel); }
+  a.btn { background: #fff; color: var(--steel); display: none; }
+  button:focus-visible, a.btn:focus-visible, input:focus-visible { outline: 3px solid var(--yellow); outline-offset: 2px; }
+  main { padding: 20px; }
+  #status { margin: 0 0 14px; min-height: 1.4em; }
+  .table-box { overflow-x: auto; background: #fff; border: 1px solid var(--line); border-radius: 4px; }
+  table { width: 100%; border-collapse: collapse; font-size: .92rem; }
+  th, td { padding: 8px 10px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: middle; }
+  th { background: var(--steel-2); color: #fff; font-weight: 600; position: sticky; top: 0; }
+  td img { width: 56px; height: 56px; object-fit: contain; }
+  td.num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  s { color: #7a8691; }
+  .free { color: var(--ok); font-weight: 600; }
+  .tag { background: #fff3cc; padding: 1px 6px; border-radius: 3px; font-size: .8rem; }
+  a { color: #1d5fa8; }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <h1>Buscador de repuestos en MercadoLibre Venezuela</h1>
+    <form id="f">
+      <input id="q" type="text" value="jac repuestos" placeholder="Ej: jac repuestos" aria-label="Qué buscas" required>
+      <label class="pages">Páginas
+        <input id="p" type="number" min="1" max="42" value="3">
+      </label>
+      <button type="submit">Buscar</button>
+      <a id="csv" class="btn" href="#">Descargar CSV</a>
+    </form>
+  </div>
+</header>
+<main class="wrap">
+  <p id="status">Escribe un término y presiona Buscar.</p>
+  <div class="table-box">
+    <table>
+      <thead><tr><th></th><th>Producto</th><th>Precio</th><th>Antes</th><th>Envío</th><th>Nota</th><th>Pág.</th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
+</main>
+<script>
+  const f = document.getElementById('f');
+  const rows = document.getElementById('rows');
+  const status = document.getElementById('status');
+  const csv = document.getElementById('csv');
+  const money = (v, c) => v == null ? '' : `${c || ''} ${v.toFixed(2)}`;
+  const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (ch) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch]));
+
+  f.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const q = document.getElementById('q').value.trim();
+    const p = document.getElementById('p').value;
+    const params = new URLSearchParams({ q, maxPages: p });
+    rows.innerHTML = '';
+    csv.style.display = 'none';
+    status.textContent = `Buscando "${q}" en hasta ${p} página(s)…`;
+
+    try {
+      const res = await fetch('/api/search?' + params);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      status.textContent = `${data.total} productos en ${data.pagesScraped} página(s).`;
+      csv.href = '/api/search?' + params + '&format=csv';
+      csv.style.display = data.total ? 'inline-block' : 'none';
+      rows.innerHTML = data.items.map((it) => `
+        <tr>
+          <td>${it.image ? `<img src="${esc(it.image)}" alt="" loading="lazy">` : ''}</td>
+          <td><a href="${esc(it.url)}" target="_blank" rel="noopener">${esc(it.title)}</a>
+              ${it.rating ? ` <small>★ ${it.rating}</small>` : ''}</td>
+          <td class="num">${money(it.price, it.currency)} ${it.discount ? `<span class="tag">${esc(it.discount)}</span>` : ''}</td>
+          <td class="num">${it.previousPrice ? `<s>${money(it.previousPrice, it.currency)}</s>` : ''}</td>
+          <td>${it.freeShipping ? '<span class="free">Gratis</span>' : ''}</td>
+          <td>${it.label ? `<span class="tag">${esc(it.label)}</span>` : ''}</td>
+          <td class="num">${it.page}</td>
+        </tr>`).join('');
+    } catch (err) {
+      status.textContent = 'Error: ' + err.message;
+    }
+  });
+</script>
+</body>
+</html>

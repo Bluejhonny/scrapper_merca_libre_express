@@ -1,6 +1,7 @@
 const COLUMNS = [
   'id', 'title', 'price', 'currency', 'previousPrice', 'discount',
-  'rating', 'freeShipping', 'label', 'url', 'image', 'page',
+  'rating', 'freeShipping', 'shipping', 'label', 'seller', 'soldQuantity',
+  'categoryId', 'url', 'image', 'page',
 ];
 
 function escape(value) {
